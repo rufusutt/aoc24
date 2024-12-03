@@ -3,47 +3,43 @@ use regex::Regex;
 pub fn solution(input: &str) {
     let re = Regex::new(r"mul\((\d+),(\d+)\)").unwrap();
 
-    let part1 = re
+    let part1: i64 = re
         .captures_iter(input)
         .map(|captures| {
-            let (_, groups): (&str, [&str; 2]) = captures.extract();
-            let mut numbers = groups.iter().map(|g| g.parse::<i64>().unwrap());
-            let first = numbers.next().unwrap();
-            let seconds = numbers.next().unwrap();
-
-            first * seconds
+            let first: i64 = captures[1].parse().unwrap();
+            let second: i64 = captures[2].parse().unwrap();
+            first * second
         })
-        .sum::<i64>();
+        .sum();
     println!("Part 1: {}", part1);
 
     let re = Regex::new(r"((?:mul|do|don't))\(((?:\d+,\d+)?)\)").unwrap();
 
     let mut enabled = true;
-    let part2 = re
+    let part2: i64 = re
         .captures_iter(input)
-        .map(|captures| {
-            let (_, [command, args]) = captures.extract();
-
-            let mut numbers = args.split(',').map(|n| n.parse::<i64>().unwrap());
+        .filter_map(|captures| {
+            let command = &captures[1];
+            let args = &captures[2];
 
             match command {
                 "mul" if enabled => {
+                    let mut numbers = args.split(',').filter_map(|n| n.parse::<i64>().ok());
                     let first = numbers.next().unwrap();
                     let second = numbers.next().unwrap();
-                    return Some(first * second);
+                    Some(first * second)
                 }
                 "do" => {
                     enabled = true;
-                    return None;
+                    None
                 }
                 "don't" => {
                     enabled = false;
-                    return None;
+                    None
                 }
                 _ => None,
             }
         })
-        .flatten()
-        .sum::<i64>();
+        .sum();
     println!("Part 2: {}", part2);
 }
