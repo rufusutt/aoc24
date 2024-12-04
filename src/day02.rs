@@ -26,7 +26,7 @@ fn safe_report(levels: &[i64]) -> bool {
 
 fn dampened_safe_report(levels: &[i64]) -> bool {
     // Try to run the original safe_report
-    if safe_report(&levels) {
+    if safe_report(levels) {
         return true;
     }
 
