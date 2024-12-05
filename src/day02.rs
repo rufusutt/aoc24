@@ -15,10 +15,11 @@ fn safe_report(levels: &[i64]) -> bool {
     }
 
     // Check all consecutive pairs
-    levels.windows(2)
+    levels
+        .windows(2)
         .map(|pair| pair[1] - pair[0])
         .all(|delta| {
-            valid_delta(delta) && 
+            valid_delta(delta) &&
             // Check if the delta is in the same direction as the first delta
             delta.signum() == first_delta.signum()
         })
