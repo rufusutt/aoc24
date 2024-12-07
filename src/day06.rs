@@ -59,10 +59,7 @@ impl Map {
                 return true;
             }
         }
-        match self.get_tile(next_pos) {
-            Some('#') => true,
-            _ => false,
-        }
+        matches!(self.get_tile(next_pos), Some('#'))
     }
 
     fn guard_path(&self, start: (isize, isize)) -> HashSet<(isize, isize)> {
@@ -70,7 +67,7 @@ impl Map {
         let mut pos = start;
         let mut direction = 0;
 
-        while let Some(_) = self.get_tile(pos) {
+        while self.get_tile(pos).is_some() {
             // Mark the current position as visited
             visited.insert(pos);
 
@@ -93,7 +90,7 @@ impl Map {
         let mut pos = start;
         let mut direction = 0;
 
-        while let Some(_) = self.get_tile(pos) {
+        while self.get_tile(pos).is_some() {
             // If we've visited this position and direction before, we're in a loop
             if !visited.insert((pos, direction)) {
                 return true;
