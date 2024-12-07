@@ -114,23 +114,10 @@ impl Map {
     }
 
     fn count_loops(&self, start: (isize, isize), visited: &HashSet<(isize, isize)>) -> usize {
-        // For each square the guard would have visited, we'll place a new
-        // obstruction and see if it results in a loop.
-
-        let mut loops = 0;
-
-        for pos in visited.iter() {
-            // We can't place an obstruction on the start square
-            if *pos == start {
-                continue;
-            }
-
-            if self.new_loop(start, *pos) {
-                loops += 1
-            }
-        }
-
-        loops
+        visited
+            .iter()
+            .filter(|&&pos| pos != start && self.new_loop(start, pos))
+            .count()
     }
 }
 
