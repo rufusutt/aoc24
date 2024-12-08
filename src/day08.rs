@@ -15,8 +15,8 @@ pub fn solution(input: &str) {
             })
         })
         .collect();
-    let width = input.lines().next().unwrap().len();
-    let height = input.lines().count();
+    let width = input.lines().next().unwrap().len() as isize;
+    let height = input.lines().count() as isize;
 
     let mut antinodes = HashSet::new();
 
@@ -28,43 +28,33 @@ pub fn solution(input: &str) {
                 continue;
             }
 
-            // Calculate the antinode step size
+            // Calculate the step size
             let dx = bx - ax;
             let dy = by - ay;
 
-            let mut add_antinodes = |start_x, start_y, dx, dy| {
-                for i in 1.. {
-                    let nx = start_x + dx * i;
-                    let ny = start_y + dy * i;
-
-                    if nx < 0 || ny < 0 || nx >= width as isize || ny >= height as isize {
-                        break;
-                    }
-
-                    antinodes.insert((i, (nx, ny)));
-                }
+            let gen_antinodes = |start_x, start_y, dx, dy| {
+                (0..)
+                    .map(move |i| {
+                        let nx = start_x + dx * i;
+                        let ny = start_y + dy * i;
+                        (i, (nx, ny))
+                    })
+                    .take_while(|&(_, (nx, ny))| nx >= 0 && ny >= 0 && nx < width && ny < height)
             };
 
-            add_antinodes(bx, by, dx, dy);
-            add_antinodes(ax, ay, -dx, -dy);
+            antinodes.extend(gen_antinodes(bx, by, dx, dy));
+            antinodes.extend(gen_antinodes(ax, ay, -dx, -dy));
         }
     }
 
-    // Collect all first-order antinodes
-    let mut first_order = HashSet::new();
-    for &(order, pos) in &antinodes {
-        if order == 1 {
-            first_order.insert(pos);
-        }
-    }
-
-    // Collect all orders of antinodes
-    let mut all_orders = HashSet::new();
-    for &(_, pos) in &antinodes {
-        all_orders.insert(pos);
-    }
-
+    let first_order: HashSet<_> = antinodes
+        .iter()
+        .filter(|&&(order, _)| order == 1)
+        .map(|&(_, pos)| pos)
+        .collect();
     println!("Part 1: {}", first_order.len());
+
+    let all_orders: HashSet<_> = antinodes.iter().map(|&(_, pos)| pos).collect();
     println!("Part 2: {}", all_orders.len());
 
     // Print map with antinodes
