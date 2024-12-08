@@ -1,3 +1,12 @@
+fn concat(a: u64, b: u64) -> u64 {
+    let digits = if b == 0 {
+        1
+    } else {
+        (b as f64).log10().floor() as u32 + 1
+    };
+    a * 10_u64.pow(digits) + b
+}
+
 fn valid_equation(target: u64, result: u64, numbers: &[u64], cat: bool) -> bool {
     // Base case: no more numbers to process
     if numbers.is_empty() {
@@ -23,8 +32,7 @@ fn valid_equation(target: u64, result: u64, numbers: &[u64], cat: bool) -> bool 
     // Try concatenation
     if cat {
         // Concat the base 10 representation of the numbers
-        let concat = format!("{}{}", result, next).parse::<u64>().unwrap();
-        if valid_equation(target, concat, &numbers[1..], cat) {
+        if valid_equation(target, concat(result, next), &numbers[1..], cat) {
             return true;
         }
     }

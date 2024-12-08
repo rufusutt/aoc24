@@ -5,6 +5,7 @@ mod day04;
 mod day05;
 mod day06;
 mod day07;
+mod day08;
 
 const SOLUTIONS: &[fn(&str)] = &[
     day01::solution,
@@ -14,6 +15,7 @@ const SOLUTIONS: &[fn(&str)] = &[
     day05::solution,
     day06::solution,
     day07::solution,
+    day08::solution,
 ];
 
 fn main() {
