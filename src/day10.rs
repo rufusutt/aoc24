@@ -53,79 +53,63 @@ impl Map {
 
     fn count_trail_peaks(
         &self,
-        (x, y): (isize, isize),
+        pos: (isize, isize),
         target: u32,
         visited: &mut HashSet<(isize, isize)>,
     ) -> usize {
-        // If out of bounds, return 0
-        let Some(current) = self.get_tile((x, y)) else {
-            return 0;
-        };
-
-        // Height must be increasing
-        if current != target {
-            return 0;
+        match self.get_tile(pos) {
+            // If out of bounds
+            None => 0,
+            // If height is not the target
+            Some(height) if height != target => 0,
+            // If we've reached the end of the trail
+            Some(9) => usize::from(visited.insert(pos)),
+            // Count peaks in all directions
+            Some(_) => DIRECTIONS
+                .iter()
+                .map(|&(dx, dy)| {
+                    let next_pos = (pos.0 + dx, pos.1 + dy);
+                    self.count_trail_peaks(next_pos, target + 1, visited)
+                })
+                .sum(),
         }
-
-        // We've reached the end of the trail
-        if current == 9 {
-            if visited.insert((x, y)) {
-                return 1;
-            } else {
-                return 0;
-            }
-        }
-
-        // Count trails in all directions
-        let mut count = 0;
-        for &(dx, dy) in &DIRECTIONS {
-            count += self.count_trail_peaks((x + dx, y + dy), target + 1, visited);
-        }
-
-        count
     }
 
-    fn count_unique_trails(
-        &self,
-        (x, y): (isize, isize),
-        target: u32,
-    ) -> usize {
-        // If out of bounds, return 0
-        let Some(current) = self.get_tile((x, y)) else {
-            return 0;
-        };
-
-        // Height must be increasing
-        if current != target {
-            return 0;
+    fn count_unique_trails(&self, pos: (isize, isize), target: u32) -> usize {
+        match self.get_tile(pos) {
+            // If out of bounds
+            None => 0,
+            // If height is not the target
+            Some(height) if height != target => 0,
+            // If we've reached the end of the trail
+            Some(9) => 1,
+            // Count trails in all directions
+            Some(_) => DIRECTIONS
+                .iter()
+                .map(|&(dx, dy)| {
+                    let next_pos = (pos.0 + dx, pos.1 + dy);
+                    self.count_unique_trails(next_pos, target + 1)
+                })
+                .sum(),
         }
-
-        // We've reached the end of the trail
-        if current == 9 {
-            return 1;
-        }
-
-        // Count trails in all directions
-        let mut count = 0;
-        for &(dx, dy) in &DIRECTIONS {
-            count += self.count_unique_trails((x + dx, y + dy), target + 1);
-        }
-
-        count
     }
 }
 
 pub fn solution(input: &str) {
     let map = Map::new(input).unwrap();
 
-    let part1 = map.find(0).map(|start| {
-        let mut visited = HashSet::new();
-        map.count_trail_peaks(start, 0, &mut visited)
-    }).sum::<usize>();
+    let part1 = map
+        .find(0)
+        .map(|start| {
+            let mut visited = HashSet::new();
+            map.count_trail_peaks(start, 0, &mut visited)
+        })
+        .sum::<usize>();
     println!("Part 1: {}", part1);
 
-    let part2 = map.find(0).map(|start| {
-        map.count_unique_trails(start, 0)
-    }).sum::<usize>();
+    let part2 = map
+        .find(0)
+        .map(|start| map.count_unique_trails(start, 0))
+        .sum::<usize>();
     println!("Part 2: {}", part2);
 }
