@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 pub fn count_digits(n: u64) -> u32 {
     if n == 0 {
         return 1;
@@ -11,44 +13,52 @@ fn split_stone(stone: u64) -> (u64, u64) {
     (stone / divisor, stone % divisor)
 }
 
-fn blink(stones: &mut Vec<u64>) {
-    let mut new_stones = Vec::with_capacity(stones.len() * 2);
-
-    for stone in stones.iter() {
-        if *stone == 0 {
-            new_stones.push(1);
-        } else if count_digits(*stone) % 2 == 0 {
-            let (a, b) = split_stone(*stone);
-            new_stones.push(a);
-            new_stones.push(b);
-        } else {
-            new_stones.push(stone * 2024);
+fn solve(stones: &mut [u64], steps: u32) -> usize {
+    fn recursion(
+        stone: u64,
+        depth: u32,
+        target: u32,
+        memo: &mut HashMap<(u64, u32), usize>,
+    ) -> usize {
+        if let Some(&result) = memo.get(&(stone, depth)) {
+            return result;
         }
+
+        if depth == target {
+            return 1;
+        }
+
+        let result = if stone == 0 {
+            recursion(1, depth + 1, target, memo)
+        } else if count_digits(stone) % 2 == 0 {
+            let (a, b) = split_stone(stone);
+            recursion(a, depth + 1, target, memo) + recursion(b, depth + 1, target, memo)
+        } else {
+            recursion(stone * 2024, depth + 1, target, memo)
+        };
+
+        memo.insert((stone, depth), result);
+        return result;
     }
 
-    *stones = new_stones;
+    let mut memo = HashMap::new();
+    stones
+        .iter()
+        .map(|&stone| recursion(stone, 0, steps, &mut memo))
+        .sum()
 }
 
 pub fn solution(input: &str) {
-    let mut stones: Vec<_> = input
+    let stones: Vec<_> = input
         .trim()
         .split_whitespace()
         .map(|stone| stone.parse::<u64>().unwrap())
         .collect();
 
-    for _ in 1..=25 {
-        blink(&mut stones);
-    }
-
-    let part1 = stones.len();
+    let part1 = solve(&mut stones.clone(), 25);
     println!("Part 1: {}", part1);
 
-    for i in 25..=75 {
-        println!("Blink {}: {}", i, stones.len());
-        blink(&mut stones);
-    }
-
-    let part2 = stones.len();
+    let part2 = solve(&mut stones.clone(), 75);
     println!("Part 2: {}", part2);
 }
 
