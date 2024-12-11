@@ -1,10 +1,8 @@
-fn count_digits(mut n: u64) -> u32 {
-    let mut digits = 0;
-    while n > 0 {
-        n /= 10;
-        digits += 1;
+pub fn count_digits(n: u64) -> u32 {
+    if n == 0 {
+        return 1;
     }
-    digits
+    ((n as f64).log10() as u32) + 1
 }
 
 fn split_stone(stone: u64) -> (u64, u64) {
@@ -14,23 +12,21 @@ fn split_stone(stone: u64) -> (u64, u64) {
 }
 
 fn blink(stones: &mut Vec<u64>) {
-    let mut i = 0;
-    while i < stones.len() {
-        let stone = &mut stones[i];
+    let mut new_stones = Vec::with_capacity(stones.len() * 2);
 
+    for stone in stones.iter() {
         if *stone == 0 {
-            *stone = 1;
-            i += 1;
+            new_stones.push(1);
         } else if count_digits(*stone) % 2 == 0 {
             let (a, b) = split_stone(*stone);
-            stones[i] = a;
-            stones.insert(i + 1, b);
-            i += 2;
+            new_stones.push(a);
+            new_stones.push(b);
         } else {
-            *stone *= 2024;
-            i += 1;
+            new_stones.push(stone * 2024);
         }
     }
+
+    *stones = new_stones;
 }
 
 pub fn solution(input: &str) {
@@ -40,15 +36,15 @@ pub fn solution(input: &str) {
         .map(|stone| stone.parse::<u64>().unwrap())
         .collect();
 
-    for _ in 0..25 {
+    for _ in 1..=25 {
         blink(&mut stones);
     }
 
     let part1 = stones.len();
     println!("Part 1: {}", part1);
 
-    for i in 0..50 {
-        println!("Blink {}", i + 25);
+    for i in 25..=75 {
+        println!("Blink {}: {}", i, stones.len());
         blink(&mut stones);
     }
 
