@@ -38,7 +38,7 @@ fn solve(stones: &mut [u64], steps: u32) -> usize {
         };
 
         memo.insert((stone, depth), result);
-        return result;
+        result
     }
 
     let mut memo = HashMap::new();
@@ -50,7 +50,6 @@ fn solve(stones: &mut [u64], steps: u32) -> usize {
 
 pub fn solution(input: &str) {
     let stones: Vec<_> = input
-        .trim()
         .split_whitespace()
         .map(|stone| stone.parse::<u64>().unwrap())
         .collect();
