@@ -43,39 +43,25 @@ impl Map {
     }
 
     fn count_edges(&self, pos: (isize, isize)) -> usize {
-        let target = self.get_tile(pos);
+        let centre = self.get_tile(pos);
         DIRECTIONS
             .iter()
-            .map(|&(dx, dy)| {
-                if self.get_tile((pos.0 + dx, pos.1 + dy)) != target {
-                    1
-                } else {
-                    0
-                }
-            })
+            .map(|&(dx, dy)| (self.get_tile((pos.0 + dx, pos.1 + dy)) != centre) as usize)
             .sum::<usize>()
     }
-
     fn count_corners(&self, pos: (isize, isize)) -> usize {
-        let mut count = 0;
-
         let centre = self.get_tile(pos);
+        CORNERS
+            .iter()
+            .map(|&(d1, d2)| {
+                let d1_tile = self.get_tile((pos.0 + d1.0, pos.1 + d1.1));
+                let d2_tile = self.get_tile((pos.0 + d2.0, pos.1 + d2.1));
+                let diag_tile = self.get_tile((pos.0 + d1.0 + d2.0, pos.1 + d1.1 + d2.1));
 
-        for &(d1, d2) in &CORNERS {
-            let d1_tile = self.get_tile((pos.0 + d1.0, pos.1 + d1.1));
-            let d2_tile = self.get_tile((pos.0 + d2.0, pos.1 + d2.1));
-            let diag_tile = self.get_tile((pos.0 + d1.0 + d2.0, pos.1 + d1.1 + d2.1));
-
-            if d1_tile != centre && d2_tile != centre {
-                count += 1;
-            }
-
-            if d1_tile == centre && d2_tile == centre && diag_tile != centre {
-                count += 1;
-            }
-        }
-
-        count
+                (d1_tile != centre && d2_tile != centre) as usize
+                    + (d1_tile == centre && d2_tile == centre && diag_tile != centre) as usize
+            })
+            .sum::<usize>()
     }
 
     fn explore_area(
@@ -116,19 +102,13 @@ impl Map {
 pub fn solution(input: &str) {
     let map = Map::new(input).unwrap();
 
-    let mut part1 = 0;
-    let mut part2 = 0;
-
     let mut visited = HashSet::new();
-    for y in 0..map.height {
-        for x in 0..map.width {
-            let pos = (x as isize, y as isize);
-            if let Some((c, p, cr)) = map.explore_area(pos, &mut visited) {
-                part1 += c * p;
-                part2 += c * cr;
-            }
-        }
-    }
+    let (part1, part2) = (0..map.height)
+        .flat_map(|y| (0..map.width).map(move |x| (x as isize, y as isize)))
+        .filter_map(|pos| map.explore_area(pos, &mut visited))
+        .fold((0, 0), |(part1, part2), (c, p, cr)| {
+            (part1 + c * p, part2 + c * cr)
+        });
 
     println!("Part 1: {}", part1);
     println!("Part 2: {}", part2);
