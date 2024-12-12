@@ -49,6 +49,7 @@ impl Map {
             .map(|&(dx, dy)| (self.get_tile((pos.0 + dx, pos.1 + dy)) != centre) as usize)
             .sum::<usize>()
     }
+
     fn count_corners(&self, pos: (isize, isize)) -> usize {
         let centre = self.get_tile(pos);
         CORNERS
