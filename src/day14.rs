@@ -1,10 +1,7 @@
 const WIDTH: isize = 101;
 const HEIGHT: isize = 103;
 
-// const WIDTH: isize = 11;
-// const HEIGHT: isize = 7;
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Robot {
     pos: (isize, isize),
     vel: (isize, isize),
@@ -51,13 +48,13 @@ impl Robot {
         let centre_y = HEIGHT / 2;
 
         if x < centre_x && y < centre_y {
-            Some(1)
+            Some(0)
         } else if x > centre_x && y < centre_y {
-            Some(2)
+            Some(1)
         } else if x < centre_x && y > centre_y {
-            Some(3)
+            Some(2)
         } else if x > centre_x && y > centre_y {
-            Some(4)
+            Some(3)
         } else {
             None
         }
@@ -86,23 +83,41 @@ fn print_map(robots: &[Robot]) {
 }
 
 pub fn solution(input: &str) {
-    let mut count: [usize; 4] = [0; 4];
-
     let mut robots: Vec<_> = input.lines().map(|line| Robot::new(line)).collect();
+    let robot_count = robots.len();
 
-    robots.iter_mut().for_each(|robot| {
+    // Part 1
+    let mut quadrants = [0; 4];
+    robots.iter().cloned().for_each(|mut robot| {
         robot.step(100);
-
         if let Some(quadrant) = robot.quadrant() {
-            count[quadrant - 1] += 1;
+            quadrants[quadrant] += 1;
         }
-
-        println!("{:?}", robot);
     });
 
-    print_map(&robots);
-    dbg!(&count);
-
-    let part1 = count.iter().product::<usize>();
+    let part1 = quadrants.iter().product::<usize>();
     println!("Part 1: {}", part1);
+
+    // Part 2
+    for i in 1.. {
+        let mut count: [usize; 4] = [0; 4];
+
+        robots.iter_mut().for_each(|robot| {
+            robot.step(1);
+
+            if let Some(quadrant) = robot.quadrant() {
+                count[quadrant] += 1;
+            }
+        });
+
+        if i % 10000 == 0 {
+            println!("Iteration {}", i);
+        }
+
+        if count.iter().any(|&x| x >= robot_count / 2) {
+            println!("Iteration {}", i);
+            print_map(&robots);
+            break;
+        }
+    }
 }
