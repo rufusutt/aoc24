@@ -1,152 +1,93 @@
-const DIRECTIONS: [(isize, isize); 4] = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+use std::collections::{HashSet, VecDeque};
 
-struct Map {
-    tiles: Vec<char>,
-    width: usize,
-    height: usize,
-}
-
-impl Map {
-    fn new(input: &str) -> Option<Self> {
-        let tiles = input.lines().flat_map(|line| line.chars()).collect();
-        let width = input.lines().next()?.chars().count();
-        let height = input.lines().count();
-
-        Some(Self {
-            tiles,
-            width,
-            height,
-        })
-    }
-
-    fn tile(&self, (x, y): (isize, isize)) -> Option<char> {
-        if x < 0 || y < 0 {
-            return None;
-        }
-        let x = x as usize;
-        let y = y as usize;
-        if x >= self.width || y >= self.height {
-            return None;
-        }
-        Some(self.tiles[y * self.width + x])
-    }
-
-    fn tile_mut(&mut self, (x, y): (isize, isize)) -> Option<&mut char> {
-        if x < 0 || y < 0 {
-            return None;
-        }
-        let x = x as usize;
-        let y = y as usize;
-        if x >= self.width || y >= self.height {
-            return None;
-        }
-        Some(&mut self.tiles[y * self.width + x])
-    }
-
-    fn find(&self, c: char) -> impl Iterator<Item = (isize, isize)> + '_ {
-        self.tiles
-            .iter()
-            .enumerate()
-            .filter_map(move |(i, &tile)| {
-                if tile == c {
-                    Some((i % self.width, i / self.width))
-                } else {
-                    None
-                }
-            })
-            .map(|(x, y)| (x as isize, y as isize))
-    }
-
-    fn can_push_box(&self, pos: (isize, isize), direction: (isize, isize)) -> bool {
-        let next_pos = (pos.0 + direction.0, pos.1 + direction.1);
-        match self.tile(next_pos) {
-            Some('.') | None => true,
-            Some('#') => false,
-            Some('O') => self.can_push_box(next_pos, direction),
-            _ => false,
-        }
-    }
-
-    fn walk(&mut self, pos: &mut (isize, isize), direction: (isize, isize)) {
-        let next_pos = (pos.0 + direction.0, pos.1 + direction.1);
-
-        match self.tile(next_pos) {
-            Some('#') => {
-                // Wall, do nothing
-            }
-            Some('.') => {
-                // Open space, move
-                *self.tile_mut(*pos).unwrap() = '.';
-                *self.tile_mut(next_pos).unwrap() = '@';
-                *pos = next_pos;
-            }
-            Some('O') => {
-                // Box, try to push
-                if self.can_push_box(next_pos, direction) {
-                    // Find all boxes in a row and move them
-                    let mut boxes = vec![next_pos];
-                    let mut current = next_pos;
-
-                    // Find all consecutive boxes
-                    while let Some('O') =
-                        self.tile((current.0 + direction.0, current.1 + direction.1))
-                    {
-                        current = (current.0 + direction.0, current.1 + direction.1);
-                        boxes.push(current);
-                    }
-
-                    // Move boxes starting from the last one
-                    for &box_pos in boxes.iter().rev() {
-                        let new_pos = (box_pos.0 + direction.0, box_pos.1 + direction.1);
-                        *self.tile_mut(box_pos).unwrap() = '.';
-                        *self.tile_mut(new_pos).unwrap() = 'O';
-                    }
-
-                    // Move player
-                    *self.tile_mut(*pos).unwrap() = '.';
-                    *self.tile_mut(next_pos).unwrap() = '@';
-                    *pos = next_pos;
-                }
-            }
-            _ => panic!("Invalid tile"),
-        }
-    }
-
-    fn print(&self) {
-        for y in 0..self.height {
-            for x in 0..self.width {
-                print!("{}", self.tiles[y * self.width + x]);
-            }
-            println!();
-        }
-    }
-}
+const DIRECTIONS: [(i32, i32); 4] = [(0, -1), (1, 0), (0, 1), (-1, 0)];
 
 pub fn solution(input: &str) {
     let (map, directions) = input.split_once("\n\n").unwrap();
-    let mut map = Map::new(map).unwrap();
 
-    // Find the starting position
-    let mut pos = map.find('@').next().unwrap();
+    let width = map.find('\n').unwrap() as i32;
+    let pos = map.find('@').unwrap() as i32;
 
-    map.print();
-    println!();
+    let height = (map.len() as i32 + 1) / (width + 1);
+    let x = pos % (width + 1);
+    let y = pos / (width + 1);
 
-    for char in directions.chars().filter(|&c| c != '\n') {
-        let direction = match char {
+    let mut map1 = Vec::new();
+    let mut map2 = Vec::new();
+
+    (0..height)
+        .flat_map(|y| (0..width).map(move |x| (x, y)))
+        .for_each(|(x, y)| {
+            match map.as_bytes()[(y * (width + 1) + x) as usize] {
+                b'O' => {
+                    map1.push(b'[');
+                    map2.extend([b'[', b']']);
+                }
+                b => {
+                    map1.push(b);
+                    map2.extend([b; 2]);
+                }
+            };
+        });
+
+    let mut q = VecDeque::new();
+    let mut set = HashSet::new();
+
+    let dirs: Vec<_> = directions
+        .chars()
+        .filter(|&c| c != '\n')
+        .map(|c| match c {
             '^' => DIRECTIONS[0],
             '>' => DIRECTIONS[1],
             'v' => DIRECTIONS[2],
             '<' => DIRECTIONS[3],
-            _ => panic!("Invalid direction"),
-        };
-        map.walk(&mut pos, direction);
-    }
+            _ => panic!("Invalid direction: {}", c),
+        })
+        .collect();
 
-    map.print();
-    println!();
+    let mut solve = |mut map: Vec<u8>, w, mut x, mut y, s| {
+        'outer: for &(dx, dy) in &dirs {
+            q.clear();
+            set.clear();
+            q.push_back([x, y]);
 
-    // Find all boxex to calculate the "GPS" score
-    let part1 = map.find('O').map(|pos| pos.0 + pos.1 * 100).sum::<isize>();
-    println!("Part 1: {}", part1);
+            while let Some((x, y, x2, y2)) = q.pop_front().map(|[x, y]| (x, y, x + dx, y + dy)) {
+                if set.insert([x, y]) {
+                    match map[(y2 * w + x2) as usize] {
+                        b'#' => continue 'outer,
+                        b'[' => q.extend(&[[x2, y2], [x2 + 1, y2]][..s]),
+                        b']' => q.extend([[x2, y2], [x2 - 1, y2]]),
+                        _ => {}
+                    }
+                }
+            }
+
+            while !set.is_empty() {
+                set.iter()
+                    .collect_into(&mut q)
+                    .drain(..)
+                    .for_each(|[x, y]| {
+                        if !set.contains(&[x + dx, y + dy]) {
+                            map.swap((y * w + x) as usize, ((y + dy) * w + x + dx) as usize);
+                            set.remove(&[x, y]);
+                        }
+                    });
+            }
+
+            (x, y) = (x + dx, y + dy);
+        }
+
+        let str = std::str::from_utf8(&map).unwrap();
+        for y in 0..height {
+            println!("{}", &str[(y * w) as usize..(y * w + w) as usize]);
+        }
+
+        map.iter()
+            .enumerate()
+            .map(|(i, &c)| i64::from(c == b'[') * i64::from(100 * (i as i32 / w) + i as i32 % w))
+            .sum::<i64>()
+    };
+
+    println!("Part 1: {}", solve(map1, width, x, y, 1));
+    println!("Part 2: {}", solve(map2, width * 2, x * 2, y, 2));
 }

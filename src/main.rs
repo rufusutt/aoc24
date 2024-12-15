@@ -1,3 +1,5 @@
+#![feature(iter_collect_into)]
+
 mod day01;
 mod day02;
 mod day03;
