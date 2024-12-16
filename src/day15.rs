@@ -63,15 +63,13 @@ pub fn solution(input: &str) {
             }
 
             while !set.is_empty() {
-                set.iter()
-                    .collect_into(&mut q)
-                    .drain(..)
-                    .for_each(|[x, y]| {
-                        if !set.contains(&[x + dx, y + dy]) {
-                            map.swap((y * w + x) as usize, ((y + dy) * w + x + dx) as usize);
-                            set.remove(&[x, y]);
-                        }
-                    });
+                let items: Vec<_> = set.iter().cloned().collect();
+                for [x, y] in items {
+                    if !set.contains(&[x + dx, y + dy]) {
+                        map.swap((y * w + x) as usize, ((y + dy) * w + x + dx) as usize);
+                        set.remove(&[x, y]);
+                    }
+                }
             }
 
             (x, y) = (x + dx, y + dy);

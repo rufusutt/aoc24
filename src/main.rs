@@ -1,5 +1,3 @@
-#![feature(iter_collect_into)]
-
 mod day01;
 mod day02;
 mod day03;
@@ -15,6 +13,7 @@ mod day12;
 mod day13;
 mod day14;
 mod day15;
+mod day16;
 
 const SOLUTIONS: &[fn(&str)] = &[
     day01::solution,
@@ -32,6 +31,7 @@ const SOLUTIONS: &[fn(&str)] = &[
     day13::solution,
     day14::solution,
     day15::solution,
+    day16::solution,
 ];
 
 fn main() {
