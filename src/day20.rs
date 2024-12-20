@@ -1,27 +1,6 @@
-use std::{
-    cmp::Ordering,
-    collections::{BinaryHeap, HashMap},
-};
+use std::collections::{HashSet, VecDeque};
 
-const DIRECTIONS: [(isize, isize); 4] = [(0, -1), (1, 0), (0, 1), (-1, 0)];
-
-#[derive(Copy, Clone, Eq, PartialEq)]
-struct State {
-    cost: usize,
-    pos: (isize, isize),
-}
-
-impl Ord for State {
-    fn cmp(&self, other: &Self) -> Ordering {
-        other.cost.cmp(&self.cost) // Note: reversed for min-heap
-    }
-}
-
-impl PartialOrd for State {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
+const DIRECTIONS: [(isize, isize); 4] = [(1, 0), (0, 1), (-1, 0), (0, -1)];
 
 struct Map {
     tiles: Vec<char>,
@@ -42,6 +21,18 @@ impl Map {
         })
     }
 
+    fn index(&self, (x, y): (isize, isize)) -> Option<usize> {
+        if x < 0 || y < 0 {
+            return None;
+        }
+        let x = x as usize;
+        let y = y as usize;
+        if x >= self.width || y >= self.height {
+            return None;
+        }
+        Some(y * self.width + x)
+    }
+
     fn tile(&self, (x, y): (isize, isize)) -> Option<char> {
         if x < 0 || y < 0 {
             return None;
@@ -54,11 +45,11 @@ impl Map {
         Some(self.tiles[y * self.width + x])
     }
 
-    fn find(&self, c: char) -> impl Iterator<Item = (isize, isize)> + '_ {
+    fn find(&self, c: char) -> Option<(isize, isize)> {
         self.tiles
             .iter()
             .enumerate()
-            .flat_map(move |(i, &tile)| {
+            .find_map(|(i, &tile)| {
                 if tile == c {
                     Some((i % self.width, i / self.width))
                 } else {
@@ -68,87 +59,81 @@ impl Map {
             .map(|(x, y)| (x as isize, y as isize))
     }
 
-    fn shortest_path(
-        &self,
-        start: (isize, isize),
-        end: (isize, isize),
-        skip: Option<(isize, isize)>,
-    ) -> Option<usize> {
-        let mut costs: HashMap<(isize, isize), usize> = HashMap::new();
-        let mut queue = BinaryHeap::new();
+    fn shortest_path(&self, start: (isize, isize), end: (isize, isize)) -> Vec<(isize, isize)> {
+        let mut queue = VecDeque::new();
+        let mut visited = HashSet::new();
+        let mut result = Vec::new();
 
-        queue.push(State {
-            cost: 0,
-            pos: start,
-        });
-        costs.insert(start, 0);
+        queue.push_back(start);
 
-        while let Some(State { cost, pos }) = queue.pop() {
-            if cost > *costs.get(&pos).unwrap_or(&usize::MAX) {
+        while let Some((x, y)) = queue.pop_back() {
+            if visited.contains(&(x, y)) {
                 continue;
             }
 
-            if pos == end {
-                return Some(cost);
+            visited.insert((x, y));
+            result.push((x, y));
+
+            if (x, y) == end {
+                return result;
             }
 
-            for &new_dir in &DIRECTIONS {
-                let new_pos = (pos.0 + new_dir.0, pos.1 + new_dir.1);
-
-                if let Some(tile) = self.tile(new_pos) {
-                    if tile == '#' {
-                        if let Some(skip) = skip {
-                            if new_pos != skip {
-                                continue;
-                            }
-                        } else {
-                            continue;
-                        }
-                    }
-
-                    let new_cost = cost + 1;
-                    if new_cost < *costs.get(&new_pos).unwrap_or(&usize::MAX) {
-                        costs.insert(new_pos, new_cost);
-                        queue.push(State {
-                            cost: new_cost,
-                            pos: new_pos,
-                        });
+            for &(dx, dy) in &DIRECTIONS {
+                let next = (x + dx, y + dy);
+                if let Some(tile) = self.tile(next) {
+                    if tile != '#' {
+                        queue.push_front(next);
                     }
                 }
             }
         }
 
-        None
+        Vec::new()
+    }
+
+    fn cheats(&self, path: &[(isize, isize)], max_distance: isize, min_diff: isize) -> usize {
+        let mut times = vec![-1; self.width * self.height];
+
+        for (i, &pos) in path.iter().enumerate() {
+            times[self.index(pos).unwrap()] = i as isize;
+        }
+
+        path.iter()
+            .map(|&pos| {
+                let mut count = 0;
+                for dx in -max_distance..=max_distance {
+                    for dy in -max_distance..=max_distance {
+                        let distance = dx.abs() + dy.abs();
+                        let new_pos = (pos.0 + dx, pos.1 + dy);
+
+                        let Some(new_idx) = self.index(new_pos) else {
+                            continue;
+                        };
+
+                        if distance > max_distance {
+                            continue;
+                        }
+
+                        let current_time = times[self.index(pos).unwrap()];
+                        let target_time = times[new_idx];
+
+                        if target_time >= 0 && (current_time - target_time - distance) >= min_diff {
+                            count += 1;
+                        }
+                    }
+                }
+                count
+            })
+            .sum()
     }
 }
 
 pub fn solution(input: &str) {
     let map = Map::new(input).unwrap();
+    let start = map.find('S').unwrap();
+    let end = map.find('E').unwrap();
+    let shortest_path = map.shortest_path(start, end);
 
-    // Find the start and end positions
-    let start = map.find('S').next().unwrap();
-    let end = map.find('E').next().unwrap();
-
-    // Find shortest path without 'cheating'
-    let track_len = map.shortest_path(start, end, None).unwrap();
-
-    // Try skipping each wall in the map to find time saved
-    let mut count = 0;
-    for skip in map.find('#') {
-        // No point skipping walls
-        if skip.0 == 0
-            || skip.0 == map.width as isize - 1
-            || skip.1 == 0
-            || skip.1 == map.height as isize - 1
-        {
-            continue;
-        }
-
-        let skip_len = map.shortest_path(start, end, Some(skip)).unwrap();
-        if track_len - skip_len >= 100 {
-            count += 1;
-        }
-    }
-
-    println!("Part 1: {}", count);
+    println!("Part 1: {}", map.cheats(&shortest_path, 2, 100));
+    println!("Part 2: {}", map.cheats(&shortest_path, 20, 100));
 }
