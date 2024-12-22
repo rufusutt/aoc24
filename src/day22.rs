@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use itertools::Itertools;
-
 fn mix(secret: u64, value: u64) -> u64 {
     secret ^ value
 }
@@ -27,54 +25,52 @@ pub fn solution(input: &str) {
         .sum::<u64>();
     println!("Part 1: {}", part1);
 
-    let mut prices = Vec::new();
+    // Pre-allocate the vector with expected capacity
+    let mut maps: Vec<HashMap<[i64; 4], u64>> = Vec::with_capacity(input.lines().count());
+    // Reuse prices vector across iterations
+    let mut prices = Vec::with_capacity(2000);
 
-    // For each initial value, create a map of sequences to bananas
-    let maps: Vec<_> = input
-        .lines()
-        .map(|line| {
-            let initial = line.parse::<u64>().unwrap();
+    for line in input.lines() {
+        let initial = line.parse::<u64>().unwrap();
+        let mut secret = initial;
 
-            prices.clear();
-            prices.push(initial % 10);
-            (0..2000).fold(initial, |secret, _| {
-                let secret = step(secret);
-                prices.push(secret % 10);
-                secret
-            });
+        prices.clear();
+        prices.push(initial % 10);
+        prices.extend((0..1999).map(|_| {
+            secret = step(secret);
+            secret % 10
+        }));
 
-            let mut map: HashMap<[i64; 4], u64> = HashMap::new();
+        // Create map for this sequence
+        let mut map = HashMap::new();
 
-            for window in prices.windows(5) {
-                // Get the sequence
-                let mut sequence = [0; 4];
-                for (i, values) in window.windows(2).enumerate() {
-                    sequence[i] = values[1] as i64 - values[0] as i64;
-                }
-
-                // Get the banana value
-                let banana = window[4];
-
-                // If this is a new sequence, add it to the map
-                map.entry(sequence).or_insert(banana);
+        let mut window = [0i64; 4];
+        for chunk in prices.windows(5) {
+            for i in 0..4 {
+                window[i] = chunk[i + 1] as i64 - chunk[i] as i64;
             }
+            map.entry(window).or_insert(chunk[4]);
+        }
 
-            map
-        })
-        .collect();
+        maps.push(map);
+    }
 
-    // For every unique key in all maps, find the maximum value by summing accross all maps.
-    let part2 = maps
-        .iter()
-        .flat_map(|map| map.keys())
-        .unique()
-        .map(|key| {
-            maps.iter()
-                .map(|map| map.get(key).unwrap_or(&0))
-                .sum::<u64>()
-        })
-        .max()
-        .unwrap();
+    // Create a unified map to track maximum sums
+    let mut max_sums: HashMap<[i64; 4], u64> = HashMap::new();
+
+    // Calculate sums for each sequence
+    for map in &maps {
+        for (&sequence, &value) in map {
+            max_sums
+                .entry(sequence)
+                .and_modify(|sum| *sum += value)
+                .or_insert(value);
+        }
+    }
+
+    // Find maximum sum
+    let part2 = max_sums.values().max().copied().unwrap_or(0);
+
     println!("Part 2: {}", part2);
 }
 
