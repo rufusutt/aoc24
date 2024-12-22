@@ -83,7 +83,7 @@ fn print_map(robots: &[Robot]) {
 }
 
 pub fn solution(input: &str) {
-    let mut robots: Vec<_> = input.lines().map(|line| Robot::new(line)).collect();
+    let mut robots: Vec<_> = input.lines().map(Robot::new).collect();
     let robot_count = robots.len();
 
     // Part 1

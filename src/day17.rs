@@ -24,11 +24,11 @@ fn run(mut reg: [u64; 3], program: &[u8], out: &mut Vec<u8>) {
 
         match opcode {
             ADV => {
-                reg[0] = reg[0] / 2u64.pow(combo(&reg, operand) as u32);
+                reg[0] /= 2u64.pow(combo(&reg, operand) as u32);
                 pc += 2;
             }
             BXL => {
-                reg[1] = reg[1] ^ operand as u64;
+                reg[1] ^= operand as u64;
                 pc += 2;
             }
             BST => {
@@ -43,7 +43,7 @@ fn run(mut reg: [u64; 3], program: &[u8], out: &mut Vec<u8>) {
                 }
             }
             BXC => {
-                reg[1] = reg[1] ^ reg[2];
+                reg[1] ^= reg[2];
                 pc += 2;
             }
             OUT => {

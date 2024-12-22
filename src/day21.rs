@@ -1,6 +1,9 @@
+use itertools::Itertools;
 use std::collections::{HashMap, VecDeque};
 
-#[derive(Debug, Clone, Copy)]
+const DOOR: [&str; 4] = ["789", "456", "123", "#0A"];
+const DPAD: [&str; 2] = ["#^A", "<v>"];
+
 enum Direction {
     Up,
     Down,
@@ -11,15 +14,6 @@ enum Direction {
 impl Direction {
     const ALL: [Self; 4] = [Self::Up, Self::Down, Self::Left, Self::Right];
 
-    fn offset(&self) -> (isize, isize) {
-        match self {
-            Self::Up => (0, -1),
-            Self::Down => (0, 1),
-            Self::Left => (-1, 0),
-            Self::Right => (1, 0),
-        }
-    }
-
     fn to_char(&self) -> char {
         match self {
             Self::Up => '^',
@@ -28,156 +22,150 @@ impl Direction {
             Self::Right => '>',
         }
     }
-}
 
-struct Keypad<'a> {
-    tiles: &'a [Option<char>],
-    width: usize,
-    height: usize,
-}
-
-const NUMERIC: Keypad = Keypad {
-    tiles: &[
-        Some('7'),
-        Some('8'),
-        Some('9'),
-        Some('4'),
-        Some('5'),
-        Some('6'),
-        Some('1'),
-        Some('2'),
-        Some('3'),
-        None,
-        Some('0'),
-        Some('A'),
-    ],
-    width: 3,
-    height: 4,
-};
-
-const CONTROL: Keypad = Keypad {
-    tiles: &[None, Some('^'), Some('A'), Some('<'), Some('v'), Some('>')],
-    width: 3,
-    height: 2,
-};
-
-impl<'a> Keypad<'a> {
-    fn iter(&self) -> impl Iterator<Item = ((isize, isize), char)> + '_ {
-        self.tiles.iter().enumerate().filter_map(move |(i, &tile)| {
-            if let Some(tile) = tile {
-                let x = i % self.width;
-                let y = i / self.width;
-                Some(((x as isize, y as isize), tile))
-            } else {
-                None
-            }
-        })
-    }
-
-    fn index(&self, (x, y): (isize, isize)) -> Option<usize> {
-        if x >= 0 && x < self.width as isize && y >= 0 && y < self.height as isize {
-            Some((y as usize * self.width) + x as usize)
-        } else {
-            None
+    fn to_delta(&self) -> (isize, isize) {
+        match self {
+            Self::Up => (-1, 0),
+            Self::Down => (1, 0),
+            Self::Left => (0, -1),
+            Self::Right => (0, 1),
         }
     }
+}
 
-    fn coords(&self, index: usize) -> (isize, isize) {
-        let x = index % self.width;
-        let y = index / self.width;
-        (x as isize, y as isize)
-    }
+fn search(coords: &HashMap<(isize, isize), char>, a: char, b: char) -> Vec<String> {
+    let inv: HashMap<char, (isize, isize)> = coords.iter().map(|(&pos, &ch)| (ch, pos)).collect();
 
-    fn shortest_path(&self, start: (isize, isize), end: (isize, isize)) -> Vec<Direction> {
-        let mut queue = VecDeque::new();
-        let mut visited = vec![false; self.tiles.len()];
-        let mut previous = vec![None; self.tiles.len()];
+    let start = inv[&a];
+    let end = inv[&b];
 
-        let start_index = self.index(start).unwrap();
-        let end_index = self.index(end).unwrap();
+    let mut q = VecDeque::new();
+    q.push_back((start, String::new()));
 
-        queue.push_back(start_index);
-        visited[start_index] = true;
+    let mut accum = Vec::new();
+    let mut dist = usize::MAX;
 
-        while let Some(current_index) = queue.pop_front() {
-            if current_index == end_index {
-                break;
-            }
+    while let Some((pos, steps)) = q.pop_front() {
+        if pos == end && steps.len() <= dist {
+            accum.push(steps.clone());
+            dist = steps.len();
+            continue;
+        }
 
-            for direction in &Direction::ALL {
-                let (dx, dy) = direction.offset();
-                let (x, y) = self.coords(current_index);
-                let new_x = x + dx;
-                let new_y = y + dy;
-
-                if let Some(new_index) = self.index((new_x, new_y)) {
-                    if !visited[new_index] && self.tiles[new_index].is_some() {
-                        queue.push_back(new_index);
-                        visited[new_index] = true;
-                        previous[new_index] = Some(current_index);
-                    }
+        if (steps.len() + 1) < dist {
+            for direction in Direction::ALL {
+                let (dy, dx) = direction.to_delta();
+                let new_pos = (pos.0 + dy, pos.1 + dx);
+                if coords.contains_key(&new_pos) && coords[&new_pos] != '#' {
+                    let mut new_steps = steps.clone();
+                    new_steps.push(direction.to_char());
+                    q.push_back((new_pos, new_steps));
                 }
             }
         }
-
-        let mut path = Vec::new();
-        let mut current_index = end_index;
-        while current_index != start_index {
-            let previous_index = previous[current_index].unwrap();
-            let (x, y) = self.coords(previous_index);
-            let (new_x, new_y) = self.coords(current_index);
-            let direction = match (new_x - x, new_y - y) {
-                (0, -1) => Direction::Up,
-                (0, 1) => Direction::Down,
-                (-1, 0) => Direction::Left,
-                (1, 0) => Direction::Right,
-                _ => unreachable!(),
-            };
-            path.push(direction);
-            current_index = previous_index;
-        }
-
-        path.reverse();
-        path
     }
+
+    accum
 }
 
-fn find_path(path_map: &HashMap<(char, char), Vec<Direction>>, sequence: &str) -> String {
-    let mut current = 'A';
-    let mut path = String::new();
+fn steps(s: &str) -> Vec<(char, char)> {
+    s.chars().tuple_windows().collect()
+}
 
-    for next in sequence.chars() {
-        let path_segment = path_map.get(&(current, next)).unwrap();
-        for &direction in path_segment {
-            path.push(direction.to_char());
-        }
-        path.push('A');
-        current = next;
+fn best_path(
+    start: char,
+    end: char,
+    n: usize,
+    moves: &HashMap<(char, char), Vec<String>>,
+    dpad_moves: &HashMap<(char, char), Vec<String>>,
+    memo: &mut HashMap<(char, char, usize), usize>,
+) -> usize {
+    if let Some(dist) = memo.get(&(start, end, n)) {
+        return *dist;
     }
 
-    path
+    let mut dist = usize::MAX;
+
+    for path in moves.get(&(start, end)).unwrap_or(&vec!["".to_string()]) {
+        if n == 0 {
+            dist = dist.min(path.len());
+        } else {
+            let path_length: usize = steps(&format!("A{}A", path))
+                .iter()
+                .map(|&(s2, e2)| best_path(s2, e2, n - 1, dpad_moves, dpad_moves, memo))
+                .sum();
+            dist = dist.min(path_length);
+        }
+    }
+
+    memo.insert((start, end, n), dist);
+    dist
+}
+
+fn solve(
+    input: &str,
+    n: usize,
+    door_moves: &HashMap<(char, char), Vec<String>>,
+    dpad_moves: &HashMap<(char, char), Vec<String>>,
+    memo: &mut HashMap<(char, char, usize), usize>,
+) -> usize {
+    input
+        .lines()
+        .map(|sequence| {
+            let length: usize = steps(&format!("A{}", sequence))
+                .iter()
+                .map(|&(s, e)| best_path(s, e, n, door_moves, dpad_moves, memo))
+                .sum();
+
+            let numeric_string = sequence
+                .chars()
+                .take_while(|c| c.is_numeric())
+                .collect::<String>();
+            let numeric = numeric_string.parse::<usize>().unwrap();
+
+            length * numeric
+        })
+        .sum::<usize>()
 }
 
 pub fn solution(input: &str) {
-    // For every combination of start and end, find the shortest path
-    let mut numeric_paths: HashMap<(char, char), Vec<Direction>> = HashMap::new();
-    for (start_pos, start) in NUMERIC.iter() {
-        for (end_pos, end) in NUMERIC.iter() {
-            let path = NUMERIC.shortest_path(start_pos, end_pos);
-            numeric_paths.insert((start, end), path);
+    // Create coordinate maps
+    let mut door_c = HashMap::new();
+    for (y, line) in DOOR.iter().enumerate() {
+        for (x, ch) in line.chars().enumerate() {
+            if ch != '#' {
+                door_c.insert((y as isize, x as isize), ch);
+            }
+        }
+    }
+    let mut dpad_c = HashMap::new();
+    for (y, line) in DPAD.iter().enumerate() {
+        for (x, ch) in line.chars().enumerate() {
+            if ch != '#' {
+                dpad_c.insert((y as isize, x as isize), ch);
+            }
         }
     }
 
-    // For every combination of start and end, find the shortest path
-    let mut control_paths: HashMap<(char, char), Vec<Direction>> = HashMap::new();
-    for (start_pos, start) in CONTROL.iter() {
-        for (end_pos, end) in CONTROL.iter() {
-            let path = CONTROL.shortest_path(start_pos, end_pos);
-            control_paths.insert((start, end), path);
-        }
+    // Initialise moves hashmaps
+    let mut door_moves = HashMap::new();
+    let mut dpad_moves = HashMap::new();
+
+    // Generate all moves
+    for (a, b) in door_c.values().tuple_combinations() {
+        door_moves.insert((*b, *a), search(&door_c, *b, *a));
+        door_moves.insert((*a, *b), search(&door_c, *a, *b));
+    }
+    for (a, b) in dpad_c.values().tuple_combinations() {
+        dpad_moves.insert((*b, *a), search(&dpad_c, *b, *a));
+        dpad_moves.insert((*a, *b), search(&dpad_c, *a, *b));
     }
 
-    let sequence = "029A";
-    let control_sequence = find_path(&numeric_paths, sequence);
+    let mut memo = HashMap::new();
 
+    let part1 = solve(input, 2, &door_moves, &dpad_moves, &mut memo);
+    println!("Part 1: {}", part1);
+
+    let part2 = solve(input, 25, &door_moves, &dpad_moves, &mut memo);
+    println!("Part 2: {}", part2);
 }
